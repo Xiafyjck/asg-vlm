@@ -1,0 +1,12 @@
+# 阶段二:CoT,学布局推理。model 不写死,启动时 model=<阶段一 checkpoint> 覆盖。
+defaults:
+  - base
+  - override hydra/job_logging: none
+  - override hydra/hydra_logging: none
+  - _self_
+
+model: null
+dataset:
+  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/cot_train.jsonl
+val_dataset:
+  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/cot_val.jsonl

@@ -1,0 +1,14 @@
+# 阶段一:answer-only,学 DSL 语法与词表。8×H200 full-tune。
+# 数据与基座在共享卷的 modelscope 缓存区,路径经环境变量解析;
+# 没 source set_cache.sh 时 MODELSCOPE_CACHE 不存在,启动即报错。
+defaults:
+  - base
+  - override hydra/job_logging: none
+  - override hydra/hydra_logging: none
+  - _self_
+
+model: ${oc.env:MODELSCOPE_CACHE}/local/Qwen3.5-9B
+dataset:
+  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_train.jsonl
+val_dataset:
+  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_val.jsonl

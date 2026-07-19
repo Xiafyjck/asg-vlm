@@ -1,0 +1,27 @@
+# 各阶段共享默认值,字段即 ms-swift TrainArguments 同名参数。
+# 阶段配置(stage1/stage2/lora_4090)通过 defaults 继承这里,只写差异。
+# hydra 节:关掉 hydra 对目录和日志的接管,产物全归 output/,由 sft.py 管。
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  job:
+    chdir: false
+
+model: null
+train_type: full
+report_to: [mlflow]
+max_length: 32768
+torch_dtype: bfloat16
+attn_impl: flash_attn
+packing: true
+deepspeed: zero2
+num_train_epochs: 2
+learning_rate: 1.0e-5
+warmup_ratio: 0.05
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 1
+eval_steps: 25
+save_steps: 25
+save_total_limit: 3
+logging_steps: 5

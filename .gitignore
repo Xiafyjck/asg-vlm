@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 密钥
+.env
+
+# 数据与产物(走 ModelScope,不进 git)
+data/
+models/
+output/
+logs/
+mlruns/
+.DS_Store

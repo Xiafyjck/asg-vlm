@@ -1,0 +1,26 @@
+# 4090(24GB)单卡 LoRA 小配置:smoke test 与流程验证,不做正式训练。
+# max_length 压到 8192,超长样本被 ms-swift 默认策略丢弃。
+defaults:
+  - base
+  - override hydra/job_logging: none
+  - override hydra/hydra_logging: none
+  - _self_
+
+model: ${oc.env:MODELSCOPE_CACHE}/local/Qwen3.5-9B
+train_type: lora
+lora_rank: 16
+lora_alpha: 32
+max_length: 8192
+packing: false
+deepspeed: null
+gradient_checkpointing: true
+num_train_epochs: 1
+learning_rate: 1.0e-4
+gradient_accumulation_steps: 8
+eval_steps: 50
+save_steps: 50
+save_total_limit: 2
+dataset:
+  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_train.jsonl
+val_dataset:
+  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_val.jsonl
