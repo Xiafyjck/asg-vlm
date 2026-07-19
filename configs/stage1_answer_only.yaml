@@ -7,8 +7,8 @@ defaults:
   - override hydra/hydra_logging: none
   - _self_
 
-model: ${oc.env:MODELSCOPE_CACHE}/local/Qwen3.5-9B
+model: ${oc.env:MODELSCOPE_CACHE}/models/Qwen--Qwen3.5-9B/snapshots/master
 dataset:
-  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_train.jsonl
+  - ${oc.env:MODELSCOPE_CACHE}/datasets/Mask2X--asg-pcb-cot-sft/snapshots/master/data/answer_only_train.jsonl
 val_dataset:
-  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_val.jsonl
+  - ${oc.env:MODELSCOPE_CACHE}/datasets/Mask2X--asg-pcb-cot-sft/snapshots/master/data/answer_only_val.jsonl

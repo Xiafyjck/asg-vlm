@@ -60,11 +60,12 @@ uv run --no-sync python -c "import torch, flash_attn; print(torch.__version__, t
 
 ```bash
 set -a; source .env; set +a   # modelscope 命令读 .env 里的 token
-# 通式:--local_dir "$MODELSCOPE_CACHE/local/<名字-版本>"
-# PCB 示例:
 uv run --no-sync modelscope download --dataset Mask2X/asg-pcb-cot-sft --revision master
 uv run --no-sync modelscope download --model Qwen/Qwen3.5-9B --revision master
 ```
+
+落盘布局由 modelscope 决定(1.38 实测):`$MODELSCOPE_CACHE/{models,datasets}/<org>--<名字>/snapshots/<revision>/`,
+revision 就在路径里,配置直接引用这个路径即可。
 
 MLOps 要点:
 
@@ -80,11 +81,11 @@ defaults:
   - override hydra/hydra_logging: none
   - _self_
 
-model: ${oc.env:MODELSCOPE_CACHE}/local/Qwen3.5-9B
+model: ${oc.env:MODELSCOPE_CACHE}/models/Qwen--Qwen3.5-9B/snapshots/master
 dataset:
-  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_train.jsonl
+  - ${oc.env:MODELSCOPE_CACHE}/datasets/Mask2X--asg-pcb-cot-sft/snapshots/master/data/answer_only_train.jsonl
 val_dataset:
-  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/answer_only_val.jsonl
+  - ${oc.env:MODELSCOPE_CACHE}/datasets/Mask2X--asg-pcb-cot-sft/snapshots/master/data/answer_only_val.jsonl
 ```
 
 配置(软编码)与硬编码之间存在模糊地带,处理原则按阶段分:前期快速验证不纠结,怎么快怎么来;进入寻超参阶段,要搜索的参数必须暴露成配置项;公开发布时做到什么程度,等有真实复现需求再定。一条硬规则贯穿始终:代码里禁止 `.get(xxx, default)` 式配置回退——默认值只允许出现在 base.yaml 这种看得见的地方,配置错误要在启动时暴露,不能被代码默默兜住(`report_to` 因此显式声明在 base.yaml)。
@@ -188,7 +189,7 @@ output/    训练产出
 mlruns/    MLflow 实验记录
 ```
 
-数据集与基座模型不在仓库里,在共享卷的 `$MODELSCOPE_CACHE/local/` 下(XDG 目录派生,immutable),见教程第 1 步。
+数据集与基座模型不在仓库里,在共享卷的 `$MODELSCOPE_CACHE/{models,datasets}/<org>--<名字>/snapshots/<revision>/` 下(XDG 目录派生,modelscope 默认布局),见教程第 1 步。
 
 ## 注意
 

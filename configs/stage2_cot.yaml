@@ -7,6 +7,6 @@ defaults:
 
 model: null
 dataset:
-  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/cot_train.jsonl
+  - ${oc.env:MODELSCOPE_CACHE}/datasets/Mask2X--asg-pcb-cot-sft/snapshots/master/data/cot_train.jsonl
 val_dataset:
-  - ${oc.env:MODELSCOPE_CACHE}/local/asg-pcb-cot-sft/data/cot_val.jsonl
+  - ${oc.env:MODELSCOPE_CACHE}/datasets/Mask2X--asg-pcb-cot-sft/snapshots/master/data/cot_val.jsonl
