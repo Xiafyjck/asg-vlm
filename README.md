@@ -16,10 +16,17 @@
 git clone <本仓库> && cd asg_vlm
 cp .env.example .env                 # 填 MODELSCOPE_API_TOKEN
 
-# 缓存与解释器路径按 XDG 规范指到共享卷:先编辑 scripts/set_cache.sh 里的两个绝对路径,
-# 再接入 bashrc(两台机器各做一次;bash 子进程 export 传不回父 shell,必须 source)
-echo "source $PWD/scripts/set_cache.sh" >> ~/.bashrc
-source ~/.bashrc
+```
+
+缓存与解释器路径按 XDG 规范指到共享卷:把 `scripts/set_cache.sh` 的内容**手动复制**进 Shell 配置文件(`~/.bashrc`),
+并把里面两个 `CHANGE_ME` 路径改成共享卷上的绝对路径,两台机器注意保持一致。
+复制时可用 `# >>>>>>` / `# <<<<<<` 把这段包起来,便于日后定位与整体替换。
+
+改完开一个新终端验证:
+
+```bash
+uv cache dir    # 应落在 $XDG_CACHE_HOME/uv
+uv python dir   # 应落在 $XDG_DATA_HOME/uv/python
 ```
 ## 环境部署
 ```bash
@@ -64,7 +71,7 @@ MLOps 要点:
 - 数据集的版本控制:"Data is immutable"(Cookiecutter Data Science 第一原则)。保证训练时的语料一致性;数据读取时必须要给出 revision。
 - 模型和数据同理(Made With ML 的 versioning 一课把这条推广到所有实验输入:凡是影响结果的输入,都要能报出版本)。
 
-然后在 `configs/` 新建一个 yaml,继承 `base.yaml` 后只写差异;字段即 ms-swift `TrainArguments` 同名参数,新增超参直接写,不用改代码。PCB 示例的三份配置就是这个形态:`stage1_answer_only.yaml`、`stage2_cot.yaml`、`lora_4090.yaml`,其中数据与模型路径用 `${oc.env:MODELSCOPE_CACHE}` 解析,没 source set_cache.sh 会在启动时报错而不是静默用错路径:
+然后在 `configs/` 新建一个 yaml,继承 `base.yaml` 后只写差异;字段即 ms-swift `TrainArguments` 同名参数,新增超参直接写,不用改代码。PCB 示例的三份配置就是这个形态:`stage1_answer_only.yaml`、`stage2_cot.yaml`、`lora_4090.yaml`,其中数据与模型路径用 `${oc.env:MODELSCOPE_CACHE}` 解析,该变量没设会在启动时报错而不是静默用错路径:
 
 ```yaml
 defaults:
@@ -87,14 +94,19 @@ val_dataset:
 冒烟测试的本质是用提前暴露错误换时间:清单做不全也不必做全,因为所有冒烟测试都只是为最终训练服务。如何权衡测试的数量，关键是把冒烟测试想全别遗漏，然后是根据代价和收益选择做哪些测试。一方面要主要想出测试方案，另外一方面 failure-driven ，也就是代码运行失败了，就要把测试给细化。
 
 ```bash
-# 4090:单卡小配置,验环境与流程
+# 4090:小配置,验环境与流程
 export RUN_NAME=smoke-4090-$(date +%Y%m%d-%H%M%S)
-uv run --no-sync torchrun --nproc_per_node 1 train/sft.py --config-name lora_4090 max_steps=3
+export NPROC=1                       # 卡数按本机实际改
+uv run --no-sync torchrun --nproc_per_node $NPROC train/sft.py --config-name lora_4090 max_steps=3
 
 # H200:正式配置,额外验 8 卡 NCCL、deepspeed、显存
 export RUN_NAME=smoke-h200-$(date +%Y%m%d-%H%M%S)
-uv run --no-sync torchrun --nproc_per_node 8 train/sft.py --config-name stage1_answer_only max_steps=3
+export NPROC=8
+uv run --no-sync torchrun --nproc_per_node $NPROC train/sft.py --config-name stage1_answer_only max_steps=3
 ```
+
+卡数走 `NPROC` 而不是写死在命令里:同一条命令两机通用,换卡数只改一个变量。
+下文的正式训练命令同样用它。
 
 通过判据:loss 是有限值(NaN 即数值问题)、无 OOM、`output/<run>/` 产出 checkpoint、MLflow 里能看到 run。
 
@@ -105,7 +117,8 @@ uv run --no-sync torchrun --nproc_per_node 8 train/sft.py --config-name stage1_a
 
 ```bash
 export RUN_NAME=stage1-$(date +%Y%m%d-%H%M%S)
-uv run --no-sync torchrun --nproc_per_node 8 train/sft.py --config-name stage1_answer_only
+export NPROC=8
+uv run --no-sync torchrun --nproc_per_node $NPROC train/sft.py --config-name stage1_answer_only
 ```
 
 命令行可覆盖任意字段,优先级:命令行 > 实验配置 > base:
@@ -119,13 +132,14 @@ uv run --no-sync torchrun --nproc_per_node 8 train/sft.py --config-name stage1_a
 
 ```bash
 export RUN_NAME=stage2-$(date +%Y%m%d-%H%M%S)
-uv run --no-sync torchrun --nproc_per_node 8 train/sft.py --config-name stage2_cot \
+export NPROC=8
+uv run --no-sync torchrun --nproc_per_node $NPROC train/sft.py --config-name stage2_cot \
   model=output/stage1-xxxx/vN-xxxx/checkpoint-NNN
 ```
 
 实验节奏遵循 Karpathy《A Recipe for Training Neural Networks》的增量复杂化:先用最简配置把端到端流程跑通,之后每次只改一个变量——一次改两个,指标变了不知道归因给谁。命令行覆盖正是为此准备的:单变量改动不必新建配置文件。随机种子默认固定(seed=42)并记录在 params,这是成本最低的可复现投资。
 
-断点续训:`resume_from_checkpoint` 指向断点,`RUN_NAME` 复用原名,输出目录和曲线接在同一个 run 上。扫参:写 bash 循环逐个起(hydra 的 multirun 与 torchrun 冲突)。可用的环境变量还有 `CUDA_VISIBLE_DEVICES`(选卡)和 `--nproc_per_node`(卡数)。
+断点续训:`resume_from_checkpoint` 指向断点,`RUN_NAME` 复用原名,输出目录和曲线接在同一个 run 上。扫参:写 bash 循环逐个起(hydra 的 multirun 与 torchrun 冲突)。可用的环境变量还有 `CUDA_VISIBLE_DEVICES`(选卡)和 `NPROC`(卡数,传给 `--nproc_per_node`)。
 
 ### 4. 看曲线
 
@@ -181,7 +195,7 @@ mlruns/    MLflow 实验记录
 以下是容易踩的坑:
 
 - 训练命令一律 `uv run --no-sync`:`uv sync` 会清掉 pyproject 之外的 deepspeed 和 flash-attn。
-- 新 shell 若没 source 过 set_cache.sh,uv 会把缓存和解释器装回本机 home,共享即失效;配置里的 `${oc.env:MODELSCOPE_CACHE}` 也会解析失败。接好 bashrc 后开新终端再干活。
+- 新 shell 里若 `XDG_CACHE_HOME` 等变量没生效(set_cache.sh 的内容没复制进 Shell 配置文件（(`~/.bashrc`)),uv 会把缓存和解释器装回本机 home,共享即失效;配置里的 `${oc.env:MODELSCOPE_CACHE}` 也会解析失败。改完 bashrc 开新终端再干活。
 - `RUN_NAME` 每次实验都要重新 export,复用旧值会把新实验写进旧 run 的目录。
 
 ## 延伸阅读
